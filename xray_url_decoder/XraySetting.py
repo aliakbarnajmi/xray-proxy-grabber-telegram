@@ -24,7 +24,7 @@ class TLSSettings:
     fingerprint: str
     pinnedPeerCertificateChainSha256: List[str]
 
-    def __init__(self, server_name: str, reject_unknown_sni: bool = None, allow_insecure: bool = None,
+    def __init__(self, server_name: str, reject_unknown_sni: bool = None, allow_insecure: bool = False,
                  alpn: List[str] = None, min_version: str = None, max_version: str = None, cipher_suites: str = None,
                  certificates: List[str] = None, disable_system_root: bool = None,
                  enable_session_resumption: bool = None, fingerprint: str = None,
@@ -135,6 +135,12 @@ class TCPSettings:
         if header is not None:
             self.header = header
 
+class ShadowsocksSettings:
+    network: str
+    def __init__(self, network: str = None) -> None:
+        self.network = network if network is not None else "tcp"
+
+
 
 class StreamSettings:
     network: str
@@ -151,7 +157,8 @@ class StreamSettings:
                  xhttp_settings: XhttpSettingsVless = None, grpc_settings: GrpcSettings = None, tcp_settings: TCPSettings = None, tls_settings: TLSSettings = None,
                  reality_settings: RealitySettings = None) -> None:
         self.network = network
-        self.security = security
+        if security is not None:
+            self.security = security
         if tls_settings is not None:
             self.tlsSettings = tls_settings
         if ws_settings is not None:

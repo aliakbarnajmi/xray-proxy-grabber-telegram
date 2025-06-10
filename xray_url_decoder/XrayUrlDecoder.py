@@ -8,6 +8,7 @@ from xray_url_decoder.XraySetting import GrpcSettings, TCPSettings, WsSettingsVl
 from xray_url_decoder.trojan import Trojan, ServerTrojan, SettingsTrojan
 from xray_url_decoder.vless import Vless, UserVless, SettingsVless, VnextVless
 from xray_url_decoder.vmess import Vmess, UserVmess, VnextVmess, SettingsVmess
+from xray_url_decoder.shadowsocks import ServerShadowsocks, SettingsShadowsocks, Shadowsocks
 from xray_url_decoder.XraySetting import StreamSettings
 from collections import namedtuple
 
@@ -99,6 +100,8 @@ class XrayUrlDecoder:
                 return self.vmess_json()
             case "trojan":
                 return self.trojan_json()
+            case "shadowsocks":
+                return self.shadowsocks_json()
             case _:
                 self.isSupported = False
                 print("schema {} is not supported yet".format(self.url.scheme))
@@ -182,7 +185,11 @@ class XrayUrlDecoder:
                 alpn = None
                 if self.getQuery("alpn") is not None:
                     alpn = self.getQuery("alpn").split(",")
-                tlsSettings = TLSSettings(self.getQuery("sni"), fingerprint=self.getQuery("fp"), alpn=alpn)
+                allowInsecure = False
+                if self.getQuery("allowInsecure") is not None:
+                    if str(self.getQuery("allowInsecure")) == "1":
+                        allowInsecure = True
+                tlsSettings = TLSSettings(self.getQuery("sni"), fingerprint=self.getQuery("fp"), alpn=alpn, allow_insecure = allowInsecure)
                 self.setIsValid(isValid_tls(tlsSettings))
 
             case "reality":
@@ -231,6 +238,17 @@ class XrayUrlDecoder:
         trojan = Trojan(self.name, setting, streamSetting, mux)
 
         return trojan
+    
+    def shadowsocks_json(self) -> Shadowsocks:
+        server = ServerShadowsocks(self.url.hostname, self.url.port, self.url.username)
+        setting = SettingsShadowsocks([server])
+        streamSetting = StreamSettings("tcp")
+        mux = Mux()
+        shadowsocks = Shadowsocks(self.name, setting, streamSetting, mux)
+
+        return shadowsocks
+
+    
 
     def is_equal_to_config(self, config_srt: str) -> bool:
         config = json.loads(config_srt)

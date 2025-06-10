@@ -61,8 +61,8 @@ with open("collected-proxies/row-url/all.txt", 'r', encoding="utf-8-sig") as f:
     #     for forGame in for_game_proxies:
     #         forGameProxiesFile.write(forGame)
     # commitPushForGameProxiesFile()
-
-    delays = XrayPing(configs, 200)
+    if len(configs) > 0:
+        delays = XrayPing(configs, 200)
     # getLatestActiveConfigs()
 
     yaml = YAML()
