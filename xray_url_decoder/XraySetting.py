@@ -153,7 +153,7 @@ class StreamSettings:
     grpcSettings: GrpcSettings
     tcpSettings: TCPSettings
 
-    def __init__(self, network: str, security: str, ws_settings: WsSettingsVless = None, upgrade_settings: UpgradeSettingsVless = None,
+    def __init__(self, network: str, security: str = None, ws_settings: WsSettingsVless = None, upgrade_settings: UpgradeSettingsVless = None,
                  xhttp_settings: XhttpSettingsVless = None, grpc_settings: GrpcSettings = None, tcp_settings: TCPSettings = None, tls_settings: TLSSettings = None,
                  reality_settings: RealitySettings = None) -> None:
         self.network = network

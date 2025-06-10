@@ -2,7 +2,7 @@ import ipaddress
 import json
 import base64
 import uuid
-from urllib.parse import parse_qs, ParseResult, urlencode, urlparse, urlunparse
+from urllib.parse import parse_qs, ParseResult, urlencode, urlparse, urlunparse, unquote
 from xray_url_decoder.IsValid import isValid_tls, isValid_reality, isValid_userVless, isValid_vnextVless, isValid_link
 from xray_url_decoder.XraySetting import GrpcSettings, TCPSettings, WsSettingsVless, RealitySettings, TLSSettings, Mux, UpgradeSettingsVless, XhttpSettingsVless
 from xray_url_decoder.trojan import Trojan, ServerTrojan, SettingsTrojan
@@ -19,6 +19,15 @@ def is_ipv6_address(hostname):
         return True
     except ipaddress.AddressValueError:
         return False
+
+def decode_base64_to_str(b64:str):
+    missing_padding = len(b64) % 4
+    if missing_padding:
+        b64 += '='* (4 - missing_padding)
+    return base64.b64decode(b64).decode("utf-8")
+
+def encode_str_to_base64(text:str):
+    return base64.b64encode(text.encode('utf-8')).decode('utf-8')
 
 
 def convertVmessLinkToStandardLink(link):
@@ -79,7 +88,8 @@ class XrayUrlDecoder:
         self.type = self.getQuery("type")
         self.security = self.getQuery("security")
 
-        if not isValid_link(self.url.username, self.url.hostname, self.url.port):
+        check_valid_protocols = ["vless", "vmess", "trojan"]
+        if self.url.scheme in check_valid_protocols and not isValid_link(self.url.username, self.url.hostname, self.url.port):
             self.isValid = False
 
     def setIsValid(self, status: bool):
@@ -92,7 +102,8 @@ class XrayUrlDecoder:
         except KeyError:
             return None
 
-    def generate_json(self) -> Vless | Vmess | Trojan | None:
+    def generate_json(self) -> Vless | Vmess | Trojan | Shadowsocks | None:
+        print(f"SCHEMA: {self.url.scheme}")
         match self.url.scheme:
             case "vless":
                 return self.vless_json()
@@ -100,7 +111,7 @@ class XrayUrlDecoder:
                 return self.vmess_json()
             case "trojan":
                 return self.trojan_json()
-            case "shadowsocks":
+            case "ss":
                 return self.shadowsocks_json()
             case _:
                 self.isSupported = False
@@ -110,7 +121,7 @@ class XrayUrlDecoder:
         json_obj = self.generate_json()
         if json_obj is None:
             return ""
-        return json.dumps(json_obj, default=lambda x: x.__dict__, ensure_ascii=False, indent=4)
+        return json.dumps(json_obj, default=lambda x: x.__dict__, ensure_ascii=False)
 
     def stream_setting_obj(self) -> StreamSettings | None:
         wsSetting = None
@@ -120,7 +131,7 @@ class XrayUrlDecoder:
         tlsSettings = None
         realitySettings = None
         xhttpSettings = None
-        
+
         match self.type:
             case "grpc":
                 grpcSettings = GrpcSettings(self.getQuery("serviceName"))
@@ -173,7 +184,7 @@ class XrayUrlDecoder:
                     xhost = self.getQuery("sni")
                 if self.getQuery("host"):
                     xhost = self.getQuery("host")
-                
+
                 xhttpSettings = XhttpSettingsVless(self.getQuery("path"), xhost, self.getQuery("mode"))
             case _:
                 self.isSupported = False
@@ -238,9 +249,14 @@ class XrayUrlDecoder:
         trojan = Trojan(self.name, setting, streamSetting, mux)
 
         return trojan
-    
+
     def shadowsocks_json(self) -> Shadowsocks:
-        server = ServerShadowsocks(self.url.hostname, self.url.port, self.url.username)
+        ss = self.shadowsocks_encoder()
+        if not ss:
+            return None
+        print("*"*50)
+        print(ss)
+        server = ServerShadowsocks(*ss)
         setting = SettingsShadowsocks([server])
         streamSetting = StreamSettings("tcp")
         mux = Mux()
@@ -248,7 +264,47 @@ class XrayUrlDecoder:
 
         return shadowsocks
 
-    
+    def shadowsocks_encoder(self) -> tuple:
+        try:
+            _body = unquote(self.url.netloc)
+            print(f"_body = {_body}")
+            _body = _body.strip().replace("`", "").replace("/?POST%20", "").replace("/?outline=1", "")
+            if _body.startswith("ey"):
+                return None
+            errors_string = ["prefix", "security=", "type=", "path=", ","]
+            if any(error in _body for error in errors_string):
+                return None
+            if "@" not in _body:
+                _body = decode_base64_to_str(_body)
+                if "@" not in _body:
+                    return None
+            if len(_body.split("@")) == 2:
+                _method_pass_b64 = _body.split("@")[0]
+                if _method_pass_b64[-2:] == "=":
+                    _method_pass_b64 = _method_pass_b64[:-1]
+                if _method_pass_b64[-1] == "=":
+                    _method_pass_b64 = _method_pass_b64[:-1]
+                _method_pass_str = decode_base64_to_str(_method_pass_b64)
+                _method_pass_str_parts = _method_pass_str.split(":")
+                if len(_method_pass_str_parts) == 2:
+                    method = _method_pass_str_parts[0]
+                    valid_methods = ["2022-blake3-aes-128-gcm", "2022-blake3-aes-256-gcm", "2022-blake3-chacha20-poly1305", "aes-256-gcm", "aes-128-gcm", "chacha20-poly1305",
+                                     "chacha20-ietf-poly1305", "xchacha20-poly1305", "xchacha20-ietf-poly1305", "plain", "none"]
+                    if method not in valid_methods:
+                        return None
+                    password = _method_pass_str_parts[1]
+                ip_port = _body.split("@")[1]
+                ip = ip_port.split(":")[0]
+                port = int(ip_port.split(":")[1])
+                skip_ips = ["free.2apzhfa.xyz", "mx2.drawnrisha.one", "free.2weradf.xyz", "120.232.218.106", "120.240.167.113", "console.03.aliyun.aq.kunlunaqs.com", "127.0.0.1"]
+                if any(skipIP==ip for skipIP in skip_ips):
+                    return None
+                return ip, port, method, password
+        except Exception as e:
+            print(self.url)
+            print(e)
+            return None
+
 
     def is_equal_to_config(self, config_srt: str) -> bool:
         config = json.loads(config_srt)

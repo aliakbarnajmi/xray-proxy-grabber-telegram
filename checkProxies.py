@@ -46,13 +46,13 @@ with open("collected-proxies/row-url/all.txt", 'r', encoding="utf-8-sig") as f:
                     configs.append(c_json)
 
                 # ############# clash Meta ##########
-                ccm = ClashMetaDecoder(url, cusTag)
-                ccm_json = ccm.generate_obj_str()
-                if c.isSupported and c.isValid and (not is_buggy_in_clash_meta(ccm)):
-                    clash_meta_configs.append(json.loads(ccm_json))
+                # ccm = ClashMetaDecoder(url, cusTag)
+                # ccm_json = ccm.generate_obj_str()
+                # if c.isSupported and c.isValid and (not is_buggy_in_clash_meta(ccm)):
+                #     clash_meta_configs.append(json.loads(ccm_json))
 
-                if is_good_for_game(c):
-                    for_game_proxies.append(url)
+                # if is_good_for_game(c):
+                #     for_game_proxies.append(url)
             except:
                 print("There is error with this proxy => " + url)
 
