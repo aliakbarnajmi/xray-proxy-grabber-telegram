@@ -1,0 +1,16 @@
+venv
+.idea
+.env
+*.session
+*.session-journal
+t1.py
+t2.py
+t1.json
+*/xray_config_ping.json
+xray_config_ping.json
+repo
+
+*/__pycache__
+__pycache__
+
+*/**/result.json
